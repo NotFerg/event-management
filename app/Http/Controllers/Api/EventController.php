@@ -16,8 +16,38 @@ class EventController extends Controller
     {
         // return Event::all();
         // return EventResource::collection(Event::all());
-        return EventResource::collection(Event::with('user')->paginate());
+        // return EventResource::collection(Event::with('user')->paginate());
+        // $this->shouldIncludeRelation('user');
+        // return EventResource::collection(Event::with('user')->paginate());
+
+        $query = Event::query();
+        $relations = ['user', 'attendees', 'attendees.user'];
+
+        foreach ($relations as $relation) {
+            $query->when(
+                $this->shouldIncludeRelation($relation),
+                fn($q) => $q->with($relation)
+            );
+        }
+
+        return EventResource::collection(
+            $query->latest()->paginate()
+        );
     }
+
+    protected function shouldIncludeRelation(string $relation): bool
+    {
+        $include = request()->query('include');
+
+        if (!$include) {
+            return false;
+        }
+
+        $relations = array_map('trim', explode(',', $include));
+
+        return in_array($relation, $relations);
+    }
+
 
     /**
      * Store a newly created resource in storage.
@@ -48,7 +78,7 @@ class EventController extends Controller
         //$event is a parameter name that gets the id from the url, then it searches the event model with the id from the url
         // return $event;
         // return new EventResource($event);
-        $event->load('user','attendees');
+        $event->load('user', 'attendees');
         return new EventResource($event);
     }
 
